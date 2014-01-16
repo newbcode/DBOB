@@ -24,7 +24,7 @@ my $nt = Net::Twitter::Lite->new(
     access_token_secret => $access_token_secret,
     legacy_lists_api => 0,
 );
-
+=pod
 my $DBH = DBI->connect (
     'dbi:mysql:DBOB',
     "$ENV{DB_ID}",
@@ -36,6 +36,7 @@ my $DBH = DBI->connect (
         mysql_auto_reconnect => 1,
     },
 );
+=cut
 
 my $week3_url;
 chomp (my $date_check = `date "+%a"`);
@@ -64,7 +65,7 @@ unless ( -e "menu/$html") {
 }
 
 my $day_p = HTML::TokeParser::Simple->new( "menu/$html" );
-my (@days, @seq_days, @course, @foods);
+my (@days, @seq_days, @courses, @foods);
 my (@tweet, @black_tweet, @lunch_tweet, @lunch2_tweet, @dinner_tweet, @temp_tweet, @test_tweet);
 my ($first_day, $last_day);
 my $n_date = `date "+%T"`;
@@ -92,7 +93,7 @@ while ( my $td = $day_p->get_tag('td') ) {
                 if ( $c_attr eq 'center' ) {
                     my $c_day = $day_p->get_trimmed_text("/td");
                     my $d_c_day = decode("euc-kr", $c_day);
-                    push @course, $d_c_day;
+                    push @courses, $d_c_day;
                 }
             }
         }
@@ -121,11 +122,30 @@ foreach my $new_date ( qw/a 1 2 3 4/ ) {
     }
 }
 
+my @new_course = qw/korean inter/; 
+my @new_meal = qw/black lunch dinner/; 
+
 my @black;
 my @lunch;
 my @dinner;
 my $f_c = 0;
 my $num = 0;
+my $cnt = 0;
+
+my %week_menu;
+
+foreach my $todate ( @days ) {
+    foreach my $course ( @new_course ) {
+        foreach my $meal ( @new_meal ) {
+            if ( $foods[$cnt] =~ /^\D/ ) {
+                push @{ $week_menu{$course}{$meal} ||= [] }, $foods[$cnt];
+            }
+        $cnt++
+        }
+    }
+}
+
+p %week_menu;
 
 foreach my $f_p ( @foods ) {
     if ( $f_p =~ /^\d/ ) {
@@ -149,11 +169,7 @@ foreach my $f_p ( @foods ) {
     }
 }
 
-p @black;
-p @lunch;
-p @dinner;
-
-my $sth = $DBH->prepare(qq{ INSERT INTO `week_menu` (`ymd`, `day`, `course`, `meal`, `menu`) VALUES (?,?  ,?,?,?) });
+#my $sth = $DBH->prepare(qq{ INSERT INTO `week_menu` (`ymd`, `day`, `course`, `meal`, `menu`) VALUES (?,?  ,?,?,?) });
 
 #$sth->execute( $a, $b, $c, $d, $e );
 
