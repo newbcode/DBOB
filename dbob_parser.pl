@@ -24,7 +24,6 @@ my $nt = Net::Twitter::Lite->new(
     access_token_secret => $access_token_secret,
     legacy_lists_api => 0,
 );
-=pod
 my $DBH = DBI->connect (
     'dbi:mysql:DBOB',
     "$ENV{DB_ID}",
@@ -36,7 +35,6 @@ my $DBH = DBI->connect (
         mysql_auto_reconnect => 1,
     },
 );
-=cut
 
 my $week3_url;
 chomp (my $date_check = `date "+%a"`);
@@ -122,58 +120,73 @@ foreach my $new_date ( qw/a 1 2 3 4/ ) {
     }
 }
 
-my @new_course = qw/korean inter/; 
-my @new_meal = qw/black lunch dinner/; 
-
-my @black;
-my @lunch;
-my @dinner;
-my $f_c = 0;
-my $num = 0;
-my $cnt = 0;
-
+my @new_course = qw/korean inter snack/;
+my @new_meal = qw/black lunch dinner night/; 
+my $fooods = join(' ', @foods);
+my @meal_foods = $fooods =~ m/(.*?\d+\skcal)/g;
 my %week_menu;
-
+my $init_num = 0;
+my $last_num = 59;
+=pod
 foreach my $todate ( @days ) {
     foreach my $course ( @new_course ) {
-        foreach my $meal ( @new_meal ) {
-            if ( $foods[$cnt] =~ /^\D/ ) {
-                push @{ $week_menu{$course}{$meal} ||= [] }, $foods[$cnt];
+        my $div = $init_num % 4;
+        #아침 점심 저녁 간식이 들어올때는 %4로 나머지값을 활용해 shift를 한다.
+            #print "$div\n";
+        if ( $div == 0 ) {
+            foreach my $meal ( @new_meal ) {
+                push @{ $week_menu{$course}{$meal} ||= [] }, shift(@meal_foods) for 0 .. 3;
             }
-        $cnt++
         }
+        elsif ( $div == 1 ) {
+            foreach my $meal ( @new_meal ) {
+                push @{ $week_menu{$course}{$meal} ||= [] }, shift(@meal_foods) for 0 .. 3;
+            }
+        }
+        elsif ( $div == 2 ) {
+            foreach my $meal ( @new_meal ) {
+                push @{ $week_menu{$course}{$meal} ||= [] }, shift(@meal_foods) for 0 .. 3;
+            }
+        }
+        elsif ( $div == 3 ) {
+            foreach my $meal ( @new_meal ) {
+                push @{ $week_menu{$course}{$meal} ||= [] }, shift(@meal_foods) for 0 .. 3;
+            }
+        }
+        $init_num++;
     }
 }
-
 p %week_menu;
+=cut
 
-foreach my $f_p ( @foods ) {
-    if ( $f_p =~ /^\d/ ) {
-        $f_c++;
-        $num++;
-    }
-    if ( $f_c == $num ) {
-        if ( $f_p =~ /^\D/ ) {
-            push @black, $f_p;
+my $sth = $DBH->prepare(qq{ INSERT INTO `week_menu` (`ymd`, `day`, `course`, `meal`, `menu`) VALUES (?,?,?,?,?) });
+foreach my $ymdp ( @days ) {
+    for (; $init_num <= $last_num; $init_num++) {
+        my $div = $init_num % 4;
+        if ( $div == 0 ) {
+            $sth->execute( $ymdp, 'Mon', 'course', 'black', $meal_foods[$init_num] );
+            print "BLACK $div init_num: $init_num\n";
         }
-    }
-    if ( $f_c == $num + 1 ) {
-        if ( $f_p =~ /^\D/ ) {
-            push @lunch, $f_p;
+        elsif ( $div == '1' ) {
+            $sth->execute( $ymdp, 'Mon', 'course', 'lunch', $meal_foods[$init_num] );
+            print "LUNCH $div init_num: $init_num\n";
         }
-    }
-    if ( $f_c == $num + 2 ) {
-        if ( $f_p =~ /^\D/ ) {
-            push @dinner, $f_p;
+        elsif ( $div == 2 ) {
+            $sth->execute( $ymdp, 'Mon', 'course', 'dinner', $meal_foods[$init_num]);
+            print "DINNER $div init_num: $init_num\n";
         }
+        elsif ( $div == 3 ) {
+            $sth->execute( $ymdp, 'Mon', 'course', 'night', $meal_foods[$init_num]);
+            print "NIGHT $div init_num: $init_num\n";
+        }
+        $init_num++; 
     }
 }
-
-#my $sth = $DBH->prepare(qq{ INSERT INTO `week_menu` (`ymd`, `day`, `course`, `meal`, `menu`) VALUES (?,?  ,?,?,?) });
-
-#$sth->execute( $a, $b, $c, $d, $e );
 
 =pod
+#my $sth = $DBH->prepare(qq{ INSERT INTO `week_menu` (`ymd`, `day`, `course`, `meal`, `menu`) VALUES (?,?  ,?,?,?) });
+#$sth->execute( $a, $b, $c, $d, $e );
+
 my $scalra_foods = join "", @foods;
 my @new_foods = split (/kcal/, $scalra_foods);
 my @ddd_today_menu;
