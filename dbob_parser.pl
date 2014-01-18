@@ -24,6 +24,7 @@ my $nt = Net::Twitter::Lite->new(
     access_token_secret => $access_token_secret,
     legacy_lists_api => 0,
 );
+
 my $DBH = DBI->connect (
     'dbi:mysql:DBOB',
     "$ENV{DB_ID}",
@@ -86,15 +87,6 @@ while ( my $td = $day_p->get_tag('td') ) {
                 }
             }
         }
-        elsif ( $td_attr eq '55' ) {
-            if ( my $c_attr = $td->get_attr('align') ) {
-                if ( $c_attr eq 'center' ) {
-                    my $c_day = $day_p->get_trimmed_text("/td");
-                    my $d_c_day = decode("euc-kr", $c_day);
-                    push @courses, $d_c_day;
-                }
-            }
-        }
     }
     elsif ( my $f_attr = $td->get_attr('height') ) {
         if ( $f_attr == '16' ) {
@@ -127,66 +119,51 @@ my @meal_foods = $fooods =~ m/(.*?\d+\skcal)/g;
 my %week_menu;
 my $init_num = 0;
 my $last_num = 59;
-=pod
+
 foreach my $todate ( @days ) {
     foreach my $course ( @new_course ) {
         my $div = $init_num % 4;
-        #아침 점심 저녁 간식이 들어올때는 %4로 나머지값을 활용해 shift를 한다.
-            #print "$div\n";
         if ( $div == 0 ) {
             foreach my $meal ( @new_meal ) {
-                push @{ $week_menu{$course}{$meal} ||= [] }, shift(@meal_foods) for 0 .. 3;
+                push @{ $week_menu{$todate}{$course}{$meal} ||= [] }, shift(@meal_foods);
             }
         }
         elsif ( $div == 1 ) {
             foreach my $meal ( @new_meal ) {
-                push @{ $week_menu{$course}{$meal} ||= [] }, shift(@meal_foods) for 0 .. 3;
+                push @{ $week_menu{$todate}{$course}{$meal} ||= [] }, shift(@meal_foods);
             }
         }
         elsif ( $div == 2 ) {
             foreach my $meal ( @new_meal ) {
-                push @{ $week_menu{$course}{$meal} ||= [] }, shift(@meal_foods) for 0 .. 3;
+                push @{ $week_menu{$todate}{$course}{$meal} ||= [] }, shift(@meal_foods);
             }
         }
         elsif ( $div == 3 ) {
             foreach my $meal ( @new_meal ) {
-                push @{ $week_menu{$course}{$meal} ||= [] }, shift(@meal_foods) for 0 .. 3;
+                push @{ $week_menu{$todate}{$course}{$meal} ||= [] }, shift(@meal_foods);
             }
         }
         $init_num++;
     }
 }
-p %week_menu;
-=cut
 
 my $sth = $DBH->prepare(qq{ INSERT INTO `week_menu` (`ymd`, `day`, `course`, `meal`, `menu`) VALUES (?,?,?,?,?) });
-foreach my $ymdp ( @days ) {
-    for (; $init_num <= $last_num; $init_num++) {
-        my $div = $init_num % 4;
-        if ( $div == 0 ) {
-            $sth->execute( $ymdp, 'Mon', 'course', 'black', $meal_foods[$init_num] );
-            print "BLACK $div init_num: $init_num\n";
+
+my $days_cnt = 0;
+foreach my $ymd_p ( keys %week_menu ) {
+    foreach my $course_p ( keys $week_menu{$ymd_p} ) {
+        foreach my $meal_p ( keys $week_menu{$ymd_p}{$course_p} ) {
+            $sth->execute( $ymd_p, "$seq_days[$days_cnt]", "$course_p", "$meal_p", "$week_menu{$ymd_p}{$course_p}{$meal_p}->[0]" );
         }
-        elsif ( $div == '1' ) {
-            $sth->execute( $ymdp, 'Mon', 'course', 'lunch', $meal_foods[$init_num] );
-            print "LUNCH $div init_num: $init_num\n";
-        }
-        elsif ( $div == 2 ) {
-            $sth->execute( $ymdp, 'Mon', 'course', 'dinner', $meal_foods[$init_num]);
-            print "DINNER $div init_num: $init_num\n";
-        }
-        elsif ( $div == 3 ) {
-            $sth->execute( $ymdp, 'Mon', 'course', 'night', $meal_foods[$init_num]);
-            print "NIGHT $div init_num: $init_num\n";
-        }
-        $init_num++; 
     }
+    $days_cnt++;
 }
 
-=pod
-#my $sth = $DBH->prepare(qq{ INSERT INTO `week_menu` (`ymd`, `day`, `course`, `meal`, `menu`) VALUES (?,?  ,?,?,?) });
-#$sth->execute( $a, $b, $c, $d, $e );
+p @seq_days;
 
+#p %week_menu;
+
+=pod
 my $scalra_foods = join "", @foods;
 my @new_foods = split (/kcal/, $scalra_foods);
 my @ddd_today_menu;
