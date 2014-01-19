@@ -37,10 +37,10 @@ my $DBH = DBI->connect (
     },
 );
 
-my $week3_url;
 chomp (my $date_check = `date "+%a"`);
 chomp (my $c_date = `date "+%Y-%m-%d"`);
 my $html = "$c_date"."_welstory.html";
+my $week3_url;
 
 my $base_url = 'http://www.welstory.com/main.jsp';
 my $login_url = "http://www.welstory.com/loginAction.do?%2Fmywelstory%2FmywelIndex.jsp&pwd_yn=Y&memId=$ENV{WES_ID}&pwd=$ENV{WES_PW}";
@@ -94,7 +94,9 @@ while ( my $td = $day_p->get_tag('td') ) {
                 if ( $f_c_attr == '11' ) {
                     my $f_text = $day_p->get_trimmed_text("/td");
                     my $d_f_text = decode("euc-kr", $f_text);
-                    push @foods, $d_f_text;
+                    my $d_d_f_text = encode ("utf8" , $d_f_text);
+                    $d_d_f_text =~ s/ㆍ//g;
+                    push @foods, $d_d_f_text;
                 }
             }
         }
@@ -158,9 +160,6 @@ foreach my $ymd_p ( keys %week_menu ) {
     }
     $days_cnt++;
 }
-
-p @seq_days;
-
 #p %week_menu;
 
 =pod
